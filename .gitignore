@@ -1,0 +1,17 @@
+# Private credentials and machine state
+.env
+.env.*
+!.env.example
+**/.env
+**/.env.*
+!**/.env.example
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.idea/
+.vscode/
+.DS_Store
+**/neo4j_data/
+**/qdrant_data/
+*.log

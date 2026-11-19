@@ -1,0 +1,4 @@
+﻿model,samples,neutral_support,emotional_support,predicted_emotional,accuracy,balanced_accuracy,emotion_precision,emotion_recall,emotion_f1,macro_f1
+dummy_majority,75,52,23,0,0.6933,0.5,0.0,0.0,0.0,0.4094
+tfidf_logreg,75,52,23,23,0.8133,0.7805,0.6957,0.6957,0.6957,0.7805
+tfidf_linear_svm,75,52,23,16,0.7733,0.6911,0.6875,0.4783,0.5641,0.7055

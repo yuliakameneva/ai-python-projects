@@ -1,0 +1,21 @@
+<!doctype html><html lang="uk"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>scanner — Project detail</title><style>:root{color-scheme:dark}*{box-sizing:border-box}body{background:#0b1423;color:#dce7f7;font:16px/1.65 system-ui,-apple-system,Segoe UI,sans-serif;padding:28px 22px;margin:auto;max-width:980px}h1,h2,h3{line-height:1.25;color:#f4f8ff;margin-top:34px}h1{font-size:2rem}h2{border-bottom:1px solid #2d415e;padding-bottom:9px}a{color:#91d9da}pre{overflow-x:auto;border:1px solid #304662;background:#09101d;padding:16px;border-radius:10px;font-size:.8rem}code{background:#1a2a40;padding:2px 5px;border-radius:4px}pre code{background:transparent}blockquote{padding:10px 18px;background:#142239;border-left:3px solid #80cfca}table{display:block;overflow-x:auto;border-collapse:collapse}td,th{border:1px solid #3b4d64;padding:8px 12px;text-align:left}th{background:#1b2b42}img{max-width:100%;border:1px solid #304463;border-radius:12px}.back{color:#7bd7d6;display:inline-block;margin-bottom:15px}.toolbar{border:1px solid #36465d;border-radius:12px;padding:14px;margin:18px 0;background:#132239}.toolbar a{display:inline-block;margin-right:18px}</style></head><body><a class="back" href="../../index.html">← Повернутися до портфоліо</a><div class="toolbar"><strong>Переглянути код та результати: </strong><a href="main.py">Головний файл</a> <a href="core/scanner.py">Сканер</a> <a href="examples/safe_report_preview.html">Приклад HTML-звіту</a></div><h1>Python Web Vulnerability Scanner — DVWA Lab</h1>
+<p><strong>Python / HTTP / HTML / security testing · навчальний прототип</strong></p>
+<h2>Задача</h2>
+<p>Автоматизувати базовий пошук типових вебвразливостей у <strong>власному локальному навчальному</strong> середовищі DVWA. Застосунок обходить доступні статичні HTML-форми, надсилає тестові HTTP-запити, аналізує реакції сервера і генерує HTML-звіт.</p>
+<h2>Реалізація</h2>
+<ul>
+<li><code>utils/crawler.py</code> — пошук HTML-форм;</li>
+<li><code>core/http_client.py</code> — сесійна взаємодія та локальний DVWA-login;</li>
+<li><code>modules/</code> — SQLi, reflected XSS, LFI, Directory Traversal, Command Injection, HTTP-заголовки та cookie;</li>
+<li><code>core/reporter.py</code> — HTML-звіт із рівнями ризику та рекомендаціями.</li>
+</ul>
+<h2>Демонстрація</h2>
+<p><a href="examples/safe_report_preview.html">Відкрити збережений приклад звіту</a>. Він показує <strong>13 спрацювань</strong> (8 HIGH та 5 MEDIUM), а не 13 окремих доведених вразливостей. Звіт є прикладом запуску у DVWA; <strong>не</strong> результатом перевірки стороннього сайту.</p>
+<h2>Запуск лише у своєму DVWA</h2>
+<p>Вимоги: Python 3.10+, запущений DVWA на <code>http://localhost</code> та локальні стандартні навчальні credentials DVWA.</p>
+<pre><code class="language-bash">python -m pip install -r requirements.txt
+python main.py
+</code></pre>
+<p>Основний entrypoint <code>main.py</code> розрахований на <strong>локальне DVWA</strong>; URL, логін і пароль задані для тренувального стенду. Не запускати проти чужих ресурсів або без дозволу. <code>report.html</code> генерується в поточній папці.</p>
+<p><strong>Важливі обмеження:</strong> сканер не проходить складні JS-flow, складні випадки Command Injection та LFI можуть залишатися непідтвердженими, а знайдені сигнали потребують ручної перевірки. Для публічної версії внесено мінімальну захисну зміну до <code>core/reporter.py</code> — HTML-екранування параметрів, payloads та рекомендацій у звіті. Інший сканувальний код збережено з архіву.</p>
+<p><a class="back" href="../../index.html">← Повернутися до портфоліо</a></p></body></html>

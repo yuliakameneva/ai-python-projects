@@ -1,0 +1,227 @@
+<!doctype html><html lang="uk"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>graphrag — Project detail</title><style>:root{color-scheme:dark}*{box-sizing:border-box}body{background:#0b1423;color:#dce7f7;font:16px/1.65 system-ui,-apple-system,Segoe UI,sans-serif;padding:28px 22px;margin:auto;max-width:980px}h1,h2,h3{line-height:1.25;color:#f4f8ff;margin-top:34px}h1{font-size:2rem}h2{border-bottom:1px solid #2d415e;padding-bottom:9px}a{color:#91d9da}pre{overflow-x:auto;border:1px solid #304662;background:#09101d;padding:16px;border-radius:10px;font-size:.8rem}code{background:#1a2a40;padding:2px 5px;border-radius:4px}pre code{background:transparent}blockquote{padding:10px 18px;background:#142239;border-left:3px solid #80cfca}table{display:block;overflow-x:auto;border-collapse:collapse}td,th{border:1px solid #3b4d64;padding:8px 12px;text-align:left}th{background:#1b2b42}img{max-width:100%;border:1px solid #304463;border-radius:12px}.back{color:#7bd7d6;display:inline-block;margin-bottom:15px}.toolbar{border:1px solid #36465d;border-radius:12px;padding:14px;margin:18px 0;background:#132239}.toolbar a{display:inline-block;margin-right:18px}</style></head><body><a class="back" href="../../index.html">← Повернутися до портфоліо</a><div class="toolbar"><strong>Переглянути код та результати: </strong><a href="scripts/05_retrieval_modes.py">Показ пошуку</a> <a href="scripts/17_benchmark_retrieval.py">Benchmark</a> <a href="tests/test_pipeline.py">Тести</a></div><h1>GraphRAG + Vector Search: фармакологічна база знань</h1>
+<p><strong>ІНДЗ № 3 — програмна реалізація та експериментальне дослідження (2026)</strong></p>
+<p>Цей навчальний проєкт порівнює три способи пошуку інформації в інструкціях до лікарських засобів: <strong>Vector-only</strong>, <strong>Graph-only</strong> та <strong>Hybrid (GraphRAG + Vector Search)</strong>. Оцінюється пошук релевантних <strong>Drug ID</strong>, а не генерування текстової відповіді чи клінічні рекомендації.</p>
+<h2>1. Що реалізовано</h2>
+<table>
+<thead>
+<tr>
+  <th>Компонент</th>
+  <th>Реалізація</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+  <td>Джерело даних</td>
+  <td>openFDA Drug Labeling (SPL), зафіксований знімок 16.10.2026</td>
+</tr>
+<tr>
+  <td>Документи</td>
+  <td>25 справжніх інструкцій</td>
+</tr>
+<tr>
+  <td>Обробка</td>
+  <td>167 розділів; 1 072 текстові фрагменти по 150 слів, перекриття 30</td>
+</tr>
+<tr>
+  <td>Граф</td>
+  <td>Neo4j 5.26 Community; у кінцевому збагаченому стані — 1 368 вузлів і 1 385 зв'язків</td>
+</tr>
+<tr>
+  <td>Вектори</td>
+  <td>Qdrant 1.15.5; колекція <code>pharma_chunks_bge_small_v1</code>, 1 072 точки, розмірність 384, Cosine, HNSW</td>
+</tr>
+<tr>
+  <td>Модель</td>
+  <td><code>BAAI/bge-small-en-v1.5</code> (FastEmbed)</td>
+</tr>
+<tr>
+  <td>Тестові запити</td>
+  <td>30 перевірених: 8 семантичних, 7 структурних, 10 із жорсткими умовами, 5 багатокрокових</td>
+</tr>
+<tr>
+  <td>Повторення</td>
+  <td>3 (19.10.2026) та 10 (20.10.2026)</td>
+</tr>
+<tr>
+  <td>Метрики</td>
+  <td>Precision@1/3/5, Recall@1/3/5, FP, backend latency, embedding latency, CPU/RAM</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Примітка до графа:</strong> експортований <code>data/processed/edges.jsonl</code> містить 1 384 зв'язки; ще один <code>RESOLVES_TO_DRUG</code> створюється під час <code>scripts/07_enrich_interactions.py --apply</code>, тому в робочій Neo4j було 1 385 зв'язків. Це послідовні стани того самого графа.</p>
+<p><strong>Важливо:</strong> наведені числа описують уже проведене дослідження. Для їх повторення з нуля потрібні <strong>той самий зафіксований корпус, перевірені анотації та еталонні відповіді</strong>. Повторне завантаження «живих» даних openFDA може дати інші документи.</p>
+<h3>Алгоритми</h3>
+<ul>
+<li><strong>Vector-only:</strong> вектор запиту → пошук близьких текстових фрагментів у Qdrant → групування за унікальними Drug ID.</li>
+<li><strong>Graph-only:</strong> Cypher у Neo4j за явно заданими структурованими обмеженнями → унікальні Drug ID. Не застосовується до восьми суто семантичних запитів.</li>
+<li><strong>Hybrid:</strong> спочатку Neo4j визначає допустимі Drug ID, потім Qdrant ранжує текстові фрагменти <strong>лише всередині цієї множини</strong>. Для Q01–Q08 використовується Vector-only fallback.</li>
+</ul>
+<p>Графові обмеження вже задано в метаданих тестового набору; автоматичне вилучення таких обмежень із природної мови <strong>не досліджувалося</strong>.</p>
+<h2>2. Склад проєкту</h2>
+<pre><code class="language-text">pharma_graphrag_pilot/
+├─ README.md
+├─ requirements.txt
+├─ docker-compose.yml
+├─ .env.example           # зразок без паролів
+├─ .env                   # локальний пароль; НЕ передавати
+├─ seeds.txt
+├─ scripts/               # 01–18: отримання даних, підготовка, пошук, оцінювання
+├─ schema/                # схема Neo4j
+├─ annotations/           # перевірені твердження та семантика взаємодій
+├─ benchmark/             # запити, gold та результати CSV/JSON
+├─ data/raw/              # вихідний JSON openFDA
+├─ data/processed/        # вузли, ребра, текстові фрагменти
+├─ tests/
+└─ docs/
+</code></pre>
+<p>Цей програмний архів містить повний локальний корпус <code>data/raw/openfda_pilot.json</code>, підготовлені фрагменти, перевірені анотації та gold-набір бенчмарку. Окремий архів <code>GraphRAG_openFDA_dataset_25labels_1072chunks.zip</code> можна подавати додатково як зручну форму датасету. <strong>Docker-томи зі станом баз до архіву не входять</strong>: на іншому комп’ютері бази потрібно побудувати за розділом 6.</p>
+<h2>3. Середовище</h2>
+<ul>
+<li>Windows 10/11, <strong>Python 3.10+</strong> (<code>py --version</code>) і PowerShell для скриптів 01–17.</li>
+<li><strong>WSL2 Ubuntu + Docker Engine + Docker Compose plugin</strong> для Neo4j і Qdrant. На дослідницькому ноутбуці використовується саме цей спосіб, <strong>не Docker Desktop</strong>.</li>
+<li>Доступ до Інтернету під час першого встановлення бібліотек, завантаження моделі та, за потреби, отримання даних із openFDA.</li>
+</ul>
+<h3>Windows PowerShell — установити залежності</h3>
+<p>Відкрити PowerShell <strong>у кореневій папці проєкту</strong>:</p>
+<pre><code class="language-powershell">py --version
+py -m pip install -r requirements.txt
+py -m unittest discover -s tests -v
+</code></pre>
+<h3>Файл <code>.env</code></h3>
+<p>Якщо <code>.env</code> уже існує, <strong>не перезаписуйте його</strong>. Інакше скопіюйте <code>.env.example</code> до <code>.env</code> і задайте власний пароль Neo4j. Не додавайте <code>.env</code> до ZIP для викладача або публічного репозиторію.</p>
+<pre><code class="language-powershell">Copy-Item .env.example .env
+</code></pre>
+<p>Для <code>03_import_neo4j.py</code> потрібно окремо встановити той самий пароль у змінній середовища поточного сеансу PowerShell:</p>
+<pre><code class="language-powershell">$env:NEO4J_PASSWORD = Read-Host &quot;Введіть пароль Neo4j&quot;
+</code></pre>
+<p>Не копіюйте пароль у звіт чи листування.</p>
+<h2>4. Запуск баз даних у WSL Ubuntu</h2>
+<p>Відкрити <strong>Ubuntu</strong>, перейти у папку проєкту на диску E (на інших ПК шлях може відрізнятися):</p>
+<pre><code class="language-bash">cd &quot;/mnt/e/5 курс/бази даних/pharma_graphrag_pilot&quot;
+sudo docker compose up -d
+sudo docker compose ps
+</code></pre>
+<p>Очікувані сервіси: <code>neo4j</code> та <code>qdrant</code>, стан <code>Up</code>.</p>
+<ul>
+<li>Neo4j Browser: http://localhost:7474 (логін <code>neo4j</code>, пароль зі свого <code>.env</code>).</li>
+<li>Qdrant Dashboard: http://localhost:6333/dashboard.</li>
+</ul>
+<p>Після роботи зупинити <strong>в Ubuntu</strong>:</p>
+<pre><code class="language-bash">sudo docker compose stop
+</code></pre>
+<p>При повторному відкритті — знову <code>sudo docker compose up -d</code>. <strong>Не виконуйте <code>docker compose down -v</code></strong>: ця команда видалить томи з даними баз.</p>
+<h2>5. Повторення вже підготовленого бенчмарку</h2>
+<p>Цей шлях призначений <strong>для існуючого, уже збагаченого проєкту</strong>. Потрібні:</p>
+<ol>
+<li>Робочі Neo4j і Qdrant із правильними даними (25 Drug, 1 072 TextChunk, 9 <code>INTERACTS_WITH</code>).</li>
+<li><code>data/processed/chunks.jsonl</code> та інші файли підготовленого корпусу.</li>
+<li><code>benchmark/gold_review_working.csv</code> з усіма 30 схваленими запитами та їхніми структурованими фільтрами.</li>
+<li>Локальний <code>.env</code> з паролем Neo4j.</li>
+</ol>
+<p>Після запуску Docker у <strong>Windows PowerShell</strong>, у папці проєкту:</p>
+<pre><code class="language-powershell">py scripts/17_benchmark_retrieval.py --preflight
+py scripts/17_benchmark_retrieval.py --run --repeats 10
+</code></pre>
+<p><strong>Спочатку має пройти <code>--preflight</code> без розбіжностей.</strong> Скрипт сам створить <code>benchmark/run_YYYYMMDDTHHMMSSZ/</code> з:</p>
+<ul>
+<li><code>retrieval_results.csv</code> — докладні результати кожного запуску;</li>
+<li><code>summary_by_category.csv</code> — агреговані метрики за категоріями, режимами та k;</li>
+<li><code>run_manifest.json</code> — параметри запуску та методологічні обмеження.</li>
+</ul>
+<p>Еталонні відповіді використовуються <strong>лише для оцінювання</strong>, а не для підбору кандидатів під час пошуку.</p>
+<h3>Окреме вимірювання серверних CPU/RAM</h3>
+<p>В Ubuntu, <strong>паралельно з Windows PowerShell</strong>:</p>
+<pre><code class="language-bash">sudo python3 scripts/18_monitor_docker_resources.py
+</code></pre>
+<p>Після <code>BASELINE COMPLETE</code> запустити бенчмарк у PowerShell. Після завершення натиснути <strong>Ctrl+C в Ubuntu</strong>. У <code>benchmark/</code> з'являться <code>docker_resources_...csv</code> та <code>docker_resources_..._summary.json</code>. Ці вимірювання описують <strong>контейнери</strong>, а не Python-клієнт. Фаза <code>load</code> може містити час очікування до/після запуску тесту.</p>
+<h3>Демонстрація роботи трьох режимів (не бенчмарк)</h3>
+<pre><code class="language-powershell">py scripts/05_retrieval_modes.py
+</code></pre>
+<p><code>05_retrieval_modes.py</code> — окремий приклад на конкретному препараті з явно переданими графовими умовами; його вихід <strong>не є</strong> метриками 30-запитного бенчмарку.</p>
+<h2>6. Побудова з зафіксованого корпусу (за потреби)</h2>
+<p>Не запускайте повторну індексацію на робочих даних без резервної копії: це окрема операція від повторення готового бенчмарку.</p>
+<ol>
+<li>У <strong>цьому програмному ZIP</strong> <code>data/raw/openfda_pilot.json</code> уже містить потрібний зафіксований знімок. Його не потрібно завантажувати повторно. Якщо дані відсутні, можна відновити їх із <code>GraphRAG_openFDA_dataset_25labels_1072chunks.zip</code> (<code>dataset/openfda_labels_snapshot_25.json</code> → <code>data/raw/openfda_pilot.json</code>).</li>
+<li>Мати <code>annotations/verified_constraints.csv</code> з <strong>попередньо перевіреними</strong> твердженнями. Для початкового, незбагаченого графа анотацій може не бути, проте це <strong>не</strong> дасть фінального benchmark-ready графа.</li>
+<li>Файли <code>data/processed/</code> <strong>вже містяться у програмному архіві</strong>, тому для найшвидшого відтворення робочої бази можна одразу виконувати крок 4. Щоб додатково перевірити повторну підготовку корпусу, у <strong>PowerShell</strong> виконати:</li>
+</ol>
+<pre><code class="language-powershell">py scripts/02_prepare_dataset.py --chunk-size 150 --overlap 30
+</code></pre>
+<p>У <strong>цьому переданому проєкті</strong> вже є <code>annotations/verified_constraints.csv</code> із 20 перевіреними фактами. Тому команда з параметрами за замовчуванням створює <strong>25 інструкцій, 1 072 фрагменти, 1 368 вузлів і 1 384 зв'язки</strong> у файлах <code>data/processed/</code>. Статистика <strong>1 349 вузлів і 1 364 зв'язки</strong> описує попередній базовий етап <em>без</em> ручних анотацій, а не результат цього запуску. Після імпорту та <code>07_enrich_interactions.py --apply</code> у робочому Neo4j буде 1 385 зв'язків.</p>
+<ol start="4">
+<li>Імпортувати в Neo4j (після встановлення <code>NEO4J_PASSWORD</code>) і побудувати колекцію Qdrant:</li>
+</ol>
+<pre><code class="language-powershell">py scripts/03_import_neo4j.py
+py scripts/04_index_qdrant.py
+</code></pre>
+<ol start="5">
+<li>Для відтворення <strong>збагаченого</strong> графа потрібні факти у <code>annotations/verified_constraints.csv</code> та <code>annotations/interaction_semantics_9.csv</code> і відповідні операції збагачення:</li>
+</ol>
+<pre><code class="language-powershell">py scripts/07_enrich_interactions.py --check-csv
+py scripts/07_enrich_interactions.py --check
+py scripts/07_enrich_interactions.py --apply
+</code></pre>
+<p><code>--apply</code> змінює Neo4j <strong>після підтвердження</strong>. Виконуйте ці команди лише за наявності перевірених вихідних файлів і правильної бази. Не підмінюйте відсутні анотації автоматичними припущеннями.</p>
+<ol start="6">
+<li>Для бенчмарку також потрібен перевірений <code>benchmark/gold_review_working.csv</code>. Скрипти <code>08</code>–<code>16</code> документують підготовку й ручне уточнення цих еталонів; відтворення <strong>точно такого самого gold</strong> вимагає збереженого CSV з дослідження.</li>
+</ol>
+<p>Альтернативно <code>01_fetch_openfda.py</code> може зробити <strong>новий</strong> запит до API, але такий корпус не варто називати тим самим зафіксованим експериментом:</p>
+<pre><code class="language-powershell">py scripts/01_fetch_openfda.py --max-labels 25 --per-drug 50
+</code></pre>
+<h2>7. Основні результати дослідження</h2>
+<p>На <strong>22 структурованих запитах</strong> (головний запуск: 10 повторень, <code>k=3</code>):</p>
+<table>
+<thead>
+<tr>
+  <th>Показник</th>
+  <th style="text-align:right">Vector-only</th>
+  <th style="text-align:right">Graph-only</th>
+  <th style="text-align:right">Hybrid</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+  <td>Precision@3</td>
+  <td style="text-align:right">34,85%</td>
+  <td style="text-align:right">42,42%</td>
+  <td style="text-align:right">42,42%</td>
+</tr>
+<tr>
+  <td>Recall@3</td>
+  <td style="text-align:right">81,82%</td>
+  <td style="text-align:right">100,00%</td>
+  <td style="text-align:right">100,00%</td>
+</tr>
+<tr>
+  <td>Частка FP серед повернутих</td>
+  <td style="text-align:right">65,15%</td>
+  <td style="text-align:right">0,00%</td>
+  <td style="text-align:right">0,00%</td>
+</tr>
+<tr>
+  <td>Середній час backend</td>
+  <td style="text-align:right">14,63 мс</td>
+  <td style="text-align:right">7,33 мс</td>
+  <td style="text-align:right">31,89 мс</td>
+</tr>
+</tbody>
+</table>
+<p>Graph-only і Hybrid часто повертають <strong>менше ніж три</strong> правильні препарати, тому Precision@3 обчислюється з фіксованим знаменником 3; відсутність FP не означає Precision@3 = 100%.</p>
+<p>Моніторинг контейнерів: Neo4j — CPU baseline/load* <strong>2,34/6,89%</strong>, RAM <strong>740,7/750,7 MiB</strong>; Qdrant — <strong>0,38/2,43%</strong>, RAM <strong>63,9/65,7 MiB</strong>. <code>load*</code> включає частину очікування між командами. Результати стосуються невеликого, спеціально підготовленого корпусу й не доводять придатність системи для клінічного застосування.</p>
+<h2>8. Що передавати викладачеві</h2>
+<ul>
+<li><strong>Звіт</strong> <code>GraphRAG_INDZ_final_report.docx</code> (окремо від програмного архіву).</li>
+<li><strong>Код:</strong> <code>scripts/</code>, <code>schema/</code>, <code>tests/</code>, <code>README.md</code>, <code>requirements.txt</code>, <code>docker-compose.yml</code>, <code>.env.example</code>, <code>seeds.txt</code>.</li>
+<li><strong>Дані:</strong> зафіксований корпус openFDA; файли <code>data/processed/</code> для точного повторення індексації; перевірені CSV в <code>annotations/</code>.</li>
+<li><strong>Результати:</strong> <code>benchmark/gold_review_working.csv</code>, <code>benchmark/run_20261020T072843Z/</code> та <code>benchmark/docker_resources_20261020T072704Z*</code>.</li>
+</ul>
+<p><strong>Ніколи не вкладати:</strong> <code>.env</code> з паролем, реальні токени API, локальні <code>.venv</code>, тимчасові кеші. Дані openFDA зберігати із зазначенням джерела та дати знімка.</p>
+<h2>9. Джерела та обмеження</h2>
+<ul>
+<li>openFDA Drug Label API: https://open.fda.gov/apis/drug/label/</li>
+<li>Neo4j: https://neo4j.com/docs/</li>
+<li>Qdrant: https://qdrant.tech/documentation/</li>
+<li>FastEmbed: https://github.com/qdrant/fastembed</li>
+</ul>
+<p>Це <strong>навчальний прототип retrieval</strong>, а не медичний довідник або засіб вибору лікування. Відсутність відношення в графі <strong>не підтверджує безпечність препарату</strong>. Еталонні відповіді формувалися в межах цього корпусу; результати не є незалежним зовнішнім клінічним тестуванням.</p>
+<p><a class="back" href="../../index.html">← Повернутися до портфоліо</a></p></body></html>
